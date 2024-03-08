@@ -1,4 +1,4 @@
-# sns-project-repo
+# sqs-project-repo
 
 
 **STEP 1: ADD REQUIRED REPO FROM OFFICIAL NODEJS WEBSITE.**
