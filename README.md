@@ -29,122 +29,106 @@ npm init -y
 **Install required dependencies**
 
 ```bash
-npm install express aws-sdk body-parser
+npm install express aws-sdk body-parser ejs
 ```
 
 
-**STEP 4: CREATE A server.js FILE AND RUN IT.**
+**STEP 4: CREATE A app.js FILE AND RUN IT.**
 
 Create a file named `app.js` with the provided the below content.
 
-***Make sure to Replace ACCESSKEY, SECRETKEY, SNS TOPIC ARN and REGION.***
+***app.js***
 
 
 ```bash
-// with accesskey and secret access key method
+// app.js
+
 const express = require('express');
-const bodyParser = require('body-parser');
 const AWS = require('aws-sdk');
+const bodyParser = require('body-parser');
+const ejs = require('ejs');
+const path = require('path'); // Add path module
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = 3000;
 
-app.use(bodyParser.json());
+// Configure AWS SDK to use IAM role credentials automatically
+AWS.config.update({ region: 'ap-south-1' }); // Replace with your desired AWS region
 
-// AWS SNS configuration
-AWS.config.update({
-  accessKeyId: 'YOUR-ACCESS-KEY',      // Replace with your keys
-  secretAccessKey: 'YOUR-SECRET-KEY',  // Replace with your keys
-  region: 'YOUR-REGION',              // Replace with your AWS region
-});
+// Create SQS service object
+const sqs = new AWS.SQS({ apiVersion: '2012-11-05' });
 
-const sns = new AWS.SNS();
+// Body parser middleware
+app.use(bodyParser.urlencoded({ extended: true }));
 
-// Route to handle email sending
-app.post('/send-email', async (req, res) => {
-  try {
-    const { email, subject, message } = req.body;
+// Set EJS as the view engine and set the views directory
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
 
-    // AWS SNS Publish
-    await sns.publish({
-      TopicArn: 'YOUR-SNS-TOPIC-ARN',          // Replace with your SNS TOpic ARN
-      Message: message,
-      Subject: subject || 'Default Subject',
-    }).promise();
-
-    res.json({ success: true, message: 'Email sent successfully!' });
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ success: false, message: 'Error sending email.' });
-  }
-});
-
-// Default route handler serving HTML file
+// Serve index.html
 app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/index.html');
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Start server
+// Serve send.html
+app.get('/send', (req, res) => {
+  res.sendFile(path.join(__dirname, 'send.html'));
+});
+
+// Send message to SQS
+app.post('/send', (req, res) => {
+  const { message } = req.body;
+
+  const params = {
+    MessageBody: message,
+    QueueUrl: 'https://sqs.ap-south-1.amazonaws.com/123123123/yourqueue', // Replace with your SQS queue URL
+  };
+
+  sqs.sendMessage(params, (err, data) => {
+    if (err) {
+      console.error('Error sending message to SQS:', err);
+      res.status(500).send('Error sending message to SQS');
+    } else {
+      console.log('Message sent to SQS:', data.MessageId);
+      res.redirect('/');
+    }
+  });
+});
+
+// Serve messages.ejs
+app.get('/messages', (req, res) => {
+  // Retrieve messages from SQS queue
+  const params = {
+    QueueUrl: 'https://sqs.ap-south-1.amazonaws.com/123123/yourqueue', // Replace with your SQS queue URL
+    AttributeNames: ['All'],
+    MaxNumberOfMessages: 10, // Adjust as needed
+    WaitTimeSeconds: 0,
+  };
+
+  sqs.receiveMessage(params, (err, data) => {
+    if (err) {
+      console.error('Error receiving messages from SQS:', err);
+      res.status(500).send('Error receiving messages from SQS');
+    } else {
+      const messages = data.Messages || [];
+      res.render('messages', { messages });
+    }
+  });
+});
+
+// Listen on port
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  console.log(`Server is running at http://localhost:${port}`);
 });
 
 ```
-
-
-***if you are deploying with-in an ec2 instance, Want to Use IAM Roles option, then refer below app.js file***
-
-```bash
-const express = require('express');
-const bodyParser = require('body-parser');
-const AWS = require('aws-sdk');
-
-const app = express();
-const port = process.env.PORT || 3000;
-
-app.use(bodyParser.json());
-
-// AWS SNS configuration with IAM role
-AWS.config.region = 'ap-south-1'; 			// Replace with your AWS region
-const sns = new AWS.SNS();
-
-// Route to handle email sending
-app.post('/send-email', async (req, res) => {
-  try {
-    const { email, subject, message } = req.body;
-
-    // AWS SNS Publish
-    await sns.publish({
-      TopicArn: 'arn:aws:sns:ap-south-1:1234567890:My-S3-Alerts',	// Replace with your SNS TOpic ARN
-      Message: message,
-      Subject: subject || 'Default Subject',
-    }).promise();
-
-    res.json({ success: true, message: 'Email sent successfully!' });
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ success: false, message: 'Error sending email.' });
-  }
-});
-
-// Default route handler serving HTML file
-app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/index.html');
-});
-
-// Start server
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
-});
-
-```
-
 
 this script creates a basic web server that listens on default port 3000, reads the content of an `index.html` file, and sends it as the response when a request is made to the server. The server logs a message indicating that it is running on `http://localhost:3000`.
 
-**STEP 5: Create Required Index.html file with below content.**
 
-create an index.html file in same location where app.js is placed.
+***create supported files aswell***
+
+***index.html***
 
 ```bash
 <!DOCTYPE html>
@@ -152,178 +136,69 @@ create an index.html file in same location where app.js is placed.
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SNS project by AWS Avinash Reddy</title>
-  <style>
-    body {
-      font-family: 'Arial', sans-serif;
-      background-color: #f4f4f4;
-      margin: 0;
-      padding: 0;
-    }
-
-    h1 {
-      color: #333;
-      text-align: center;
-      padding: 20px;
-      background-color: #4CAF50;
-      margin: 0;
-    }
-
-    form {
-      max-width: 400px;
-      margin: 20px auto;
-      background-color: #fff;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    }
-
-    label {
-      display: block;
-      margin-bottom: 8px;
-      color: #333;
-    }
-
-    input,
-    textarea {
-      width: 100%;
-      padding: 8px;
-      margin-bottom: 16px;
-      box-sizing: border-box;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
-
-    button {
-      background-color: #4CAF50;
-      color: #fff;
-      padding: 10px 15px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-
-    button:hover {
-      background-color: #45a049;
-    }
-
-    footer {
-      text-align: center;
-      padding: 10px;
-      background-color: #333;
-      color: #fff;
-      position: fixed;
-      bottom: 0;
-      width: 100%;
-    }
-  </style>
+  <title>SQS Example</title>
 </head>
 <body>
-  <h1>SNS Project by Avinash</h1>
-  <form id="emailForm" action="/send-email" method="post">
-    <label for="email">Email:</label>
-    <input type="email" id="email" name="email" required>
-    <br>
-    <label for="subject">Subject:</label>
-    <input type="text" id="subject" name="subject">
-    <br>
-    <label for="message">Message:</label>
-    <textarea id="message" name="message" required></textarea>
-    <br>
-    <button type="button" onclick="sendEmail()">Send Email</button>
-  </form>
-
-  <footer>
-    A project by Avinash Reddy
-  </footer>
-
-  <script>
-    async function sendEmail() {
-      const email = document.getElementById('email').value;
-      const subject = document.getElementById('subject').value;
-      const message = document.getElementById('message').value;
-
-      try {
-        const response = await fetch('/send-email', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email, subject, message }),
-        });
-
-        const result = await response.json();
-        alert(result.message);
-      } catch (error) {
-        console.error('Error:', error);
-        alert('Error sending email.');
-      }
-    }
-  </script>
+  <h1>Home Page</h1>
+  <p>Welcome to the home page!</p>
+  <a href="/send">Go to Send Page</a>
+  <br>
+  <a href="/messages">View Messages</a>
 </body>
 </html>
+
 ```
 
 
-**STEP 6: NODE.JS WILL INTERPRET AND EXECUTE THE CODE IN THE server.js FILE. THIS IS A COMMON PATTERN FOR RUNNING SERVER-SIDE JAVASCRIPT APPLICATIONS.**
+***send.html***
 
 ```bash
-node app.js
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SQS Example</title>
+</head>
+<body>
+  <h1>Send Message</h1>
+  <form action="/send" method="post">
+    <label for="message">Message:</label>
+    <input type="text" id="message" name="message" required>
+    <button type="submit">Send</button>
+  </form>
+  <br>
+  <a href="/">Go to Home Page</a>
+</body>
+</html>
+
 ```
 
-**After following these steps, your Node.js server should be up and running.**
 
-**Make sure your ec2 instance security group io opened with required port i.e; 80/3000/any other port**
-
-
-
-**Below Steps are optional, but recommended**
-
-if you wan to run it as an application use PM2 tool.
-
-**Command to install pm2**
+***messages.ejs***
 
 ```bash
-npm install -g pm2
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SQS Example</title>
+</head>
+<body>
+  <h1>Messages from SQS Queue</h1>
+  <ul>
+    <% messages.forEach(message => { %>
+      <li><%= message.Body %></li>
+    <% }); %>
+  </ul>
+  <br>
+  <a href="/">Go to Home Page</a>
+</body>
+</html>
+
 ```
 
-**list all running processes/apps.**
+***Once all files created, Run "node app.js". Make sure your ec2 instance have role that contains valid access on SQS service***
 
-```bash
-pm2 list   (or) pm ls
-```
-
-**Start app/services with name**
-
-```bash
-pm2 start app.js --name "my-app1"
-```
-**Stop app/services with name**
-
-```bash
-pm2 stop app.js --name "my-app1"
-```
-
-**Command to list the logs**
-
-```bash
-pm2 logs id/name
-```
-
-**Command to Monitor the resources**
-
-```bash
-pm2 monit
-```
-
-**To make service as startup**
-
-```bash
-pm2 startup
-```
-
-**Command to delete service/app**
-
-```bash
-pm2 delete name/id
-```
+Once you access webpage on port 3000, Click on "Go to Send Page" to send a message. and "View Messages" to view messages we have in Queue.
