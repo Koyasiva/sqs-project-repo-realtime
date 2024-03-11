@@ -4,7 +4,7 @@
 **STEP 1: ADD REQUIRED REPO FROM OFFICIAL NODEJS WEBSITE.**
 
 ```bash
-curl -sL https://rpm.nodesource.com/setup_16.x | sudo bash -
+curl -sL https://rpm.nodesource.com/setup_18.x | sudo bash -
 ```
 
 **STEP 2: INSTALL NODEJS.**
