@@ -32,6 +32,7 @@ npm init -y
 
 ```bash
 npm install express aws-sdk body-parser ejs
+node app.js
 ```
 
 
