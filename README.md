@@ -10,7 +10,8 @@ curl -sL https://rpm.nodesource.com/setup_16.x | sudo bash -
 **STEP 2: INSTALL NODEJS.**
 
 ```bash
-sudo yum install -y nodejs
+sudo apt update
+sudo apt install nodejs
 ```
 
 **STEP 3: VERIFY INSTALLED VERSION.**
@@ -18,6 +19,7 @@ sudo yum install -y nodejs
 ```bash
 node -v
 npm -v
+sudo apt install npm
 ```
 
 **Initialise Node project**
