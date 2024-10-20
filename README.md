@@ -85,7 +85,7 @@ app.post('/send', (req, res) => {
 
   const params = {
     MessageBody: message,
-    QueueUrl: 'https://sqs.ap-south-1.amazonaws.com/123123123/yourqueue', // Replace with your SQS queue URL
+    QueueUrl: 'https://sqs.ap-southeast-1.amazonaws.com/495599774435/application', // Replace with your SQS queue URL
   };
 
   sqs.sendMessage(params, (err, data) => {
@@ -103,7 +103,7 @@ app.post('/send', (req, res) => {
 app.get('/messages', (req, res) => {
   // Retrieve messages from SQS queue
   const params = {
-    QueueUrl: 'https://sqs.ap-south-1.amazonaws.com/123123/yourqueue', // Replace with your SQS queue URL
+    QueueUrl: 'https://sqs.ap-southeast-1.amazonaws.com/495599774435/application', // Replace with your SQS queue URL
     AttributeNames: ['All'],
     MaxNumberOfMessages: 10, // Adjust as needed
     WaitTimeSeconds: 0,
